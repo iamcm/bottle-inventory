@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Site</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <link href="static/css/bootstrap.css" rel="stylesheet">
+    <style>
+    body {
+        padding-top: 60px; /* 60px to make the container go all the way to the bottom of the topbar */
+    }
+    </style>
+    <link href="static/css/bootstrap-responsive.css" rel="stylesheet">
+    <link href="static/css/generic.css" rel="stylesheet">
+    <link href="static/css/site.css" rel="stylesheet">
+
+
+    <!--[if lt IE 9]>
+        <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <link rel="shortcut icon" href="static/ico/favicon.ico">
+    <link rel="apple-touch-icon-precomposed" sizes="144x144" href="static/ico/apple-touch-icon-144-precomposed.png">
+    <link rel="apple-touch-icon-precomposed" sizes="114x114" href="static/ico/apple-touch-icon-114-precomposed.png">
+    <link rel="apple-touch-icon-precomposed" sizes="72x72" href="static/ico/apple-touch-icon-72-precomposed.png">
+    <link rel="apple-touch-icon-precomposed" href="static/ico/apple-touch-icon-57-precomposed.png">
+
+    <script type="text/template" id="collection_template">
+    <ul>
+    <% _.each(collections, function(c) { %>
+
+        <li>
+            <a href="#/collection/<%= c.get('_id') %>">
+                <%= c.get('name') %>
+            </a>
+        </li>
+
+        <% }); %>
+    </ul>
+    </script>
+
+</head>
+
+<body>
+
+    <div class="navbar navbar-fixed-top">
+        <div class="navbar-inner">
+            <div class="container-fluid">
+                <a class="brand" href="/frontend/index.html">Inventory</a>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="container-fluid">
+        <div class="row-fluid">
+            <div class="span3">
+                <div id="collection_form">
+                    <form class="form-horizontal">
+                        <input type="text" id="collection_name" />
+                        <input type="button" class="btn" id="submit" value="Add" />
+                    </form>
+                </div>
+                <div id="collections"></div>
+            </div>
+            <div class="span9">
+                <div id="item_form" >
+                    <form class="form-horizontal pull-right">
+                        <input type="text" id="item_name" />
+                        <input type="button" class="btn" id="submit" value="Add" />
+                    </form>
+                    &nbsp;
+                </div>
+                <div id="items"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.4.4/underscore-min.js"></script>
+    <script src="static/js/jquery.js"></script>
+    <script src="static/js/backbone.js"></script>
+    <script src="static/js/bootstrap.js"></script>
+    <script src="static/js/site.js"></script>
+
+
+</body>
+</html>
