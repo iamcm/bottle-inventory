@@ -40,6 +40,13 @@ class EntityManager:
                                             ,skip=20
                                             ,limit=10
                                             )
+        collections = EntityManager(_DBCON).get_all(Item
+                                , filter_criteria={
+                                    'userId':bottle.request.session.userId,
+                                    'collections':{
+                                        '$in':[collectionId]
+                                    }
+                                })
         """
         extraCriteria = ''
 

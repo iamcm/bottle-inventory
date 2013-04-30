@@ -41,8 +41,10 @@ class AuthController(BaseController):
 
         if e and p:
             u = User(_DBCON, email=e, password=p)
-            
-            if u._id:
+            u.activate('76e8f1cbbf8007c490d2abf6b82d9064')
+            Logger.log_to_file(u.get_json())    
+
+            if u._id and u.valid:
                 s = self._login_user(u)
                 return s.publicId
 

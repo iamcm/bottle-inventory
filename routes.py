@@ -4,6 +4,14 @@ from controllers.DefaultController import DefaultController
 from controllers.AuthController import AuthController
 import settings
 
+
+########## STATIC FILES ##############
+if settings.PROVIDE_STATIC_FILES:
+    @route('/frontend/<filepath:path>')
+    def index(filepath):
+        return bottle.static_file(filepath, root=settings.ROOTPATH +'/frontend/')
+######################################
+
 ########## AUTH ##############
 @route('/login')
 def index():
@@ -51,10 +59,10 @@ def index():
 def index():
     return DefaultController().getCollections()
 
-@route('/collection/save', method='GET') 
+@route('/collection', method='POST') 
 def index():
-    id = bottle.request.GET.get('id')
-    name = bottle.request.GET.get('name')
+    id = bottle.request.json.get('id')
+    name = bottle.request.json.get('name')
     return DefaultController().saveCollection(id=id, name=name)
 
 @route('/item/save', method='GET') 

@@ -1,4 +1,8 @@
 *.py[cod]
+site.log
+settings.py
+app.pid
+frontend
 
 # C extensions
 *.so

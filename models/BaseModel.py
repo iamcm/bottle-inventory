@@ -137,7 +137,7 @@ class BaseModel(object):
         
         return obj
     
-    def get_json(self):
+    def get_json_safe(self):
         obj = {}
         for f, val in self._fields:
             fieldtype = type(getattr(self, f))
@@ -158,7 +158,7 @@ class BaseModel(object):
             
         if self._id: obj['_id'] = str(self._id)
                 
-        return json.dumps(obj)
+        return obj
             
     def save(self):
         if self._id:

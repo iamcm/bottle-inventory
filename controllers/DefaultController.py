@@ -17,9 +17,9 @@ from models.Item import Item
 
 class DefaultController(BaseController):
     
-    def index(self):
-
-        return "Shaka"
+    def __init__(self):
+        bottle.response.content_type = 'application/json'
+        
 
     @checklogin
     def saveCollection(self, name, id=None, items=[]):
@@ -40,9 +40,10 @@ class DefaultController(BaseController):
 
         output = []
         for c in collections:
-            output.append(c.get_json())
+            output.append( c.get_json_safe() )
 
-        return output
+        return json.dumps(output)
+
 
     @checklogin
     def saveItem(self, name, id=None, collectionIds=[]):
@@ -58,6 +59,27 @@ class DefaultController(BaseController):
             c.save()
 
         return json.dumps({'result':True})
+
+            
+    @checklogin
+    def getItems(self, collectionId=None):
+        if collectionId:
+            collections = EntityManager(_DBCON).get_all(Item
+                                , filter_criteria={
+                                    'userId':bottle.request.session.userId,
+                                    'collections':{
+                                        '$in':[collectionId]
+                                    }
+                                })
+        else:
+            collections = EntityManager(_DBCON).get_all(Item
+                                , filter_criteria={'userId':bottle.request.session.userId})
+
+        output = []
+        for c in collections:
+            output.append( c.get_json_safe() )
+
+        return json.dumps(output)
 
 
     def favicon(self):

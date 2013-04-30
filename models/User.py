@@ -50,7 +50,6 @@ class User(BaseModel):
             self.password = self.get_password_hash(self.salt)
             self.token = self.generate_token()
         
-        Logger.log_to_file(user)
 
         super(self.__class__, self).save()
     
