@@ -1,77 +1,104 @@
+var Collection = {
+    collections:null,
 
-var Collection = Backbone.Model.extend({
-	url: '/collection',
-	defaults: {
-		_id:null,
-        name: null,
-        added:null
-    }
-});
+    getAll:function(callback){
+        var self = this;
 
-var Item = Backbone.Model.extend({
-	url: '/item',
-	defaults: {
-        name: '',
-        collectionIds:[]
-    }
-});
+        $.getJSON('/collections', function(json){
+            self.collections = json;
 
-var CollectionFormView = Backbone.View.extend({
-    initialize: function(){
-        $('#collection_name').val('');
+            Util.Templating.renderTemplate('collection_template', {'collections':json}, 'collections');
+
+            if(callback) callback();
+        })
     },
 
-    events: {
-        "click #submit": "saveCollection"  
+    getDropdown:function(){
+        if(!this.collections){
+            this.getAll(this.getDropdown);
+        } else {
+
+            var html = Util.Html.select({
+                name:'collectionId',
+                content:this.collections,
+                valueKey:'_id',
+                nameKey:'name',
+            });
+
+            return html;
+        }
+
     },
-    saveCollection: function( event ){
-        var c = new Collection();
-        c.set(name, $('#collection_name').val());
-        c.save();
-        
-        this.initialize();
-        collections_view.initialize();
-    }
-});
 
-
-var CollectionsView = Backbone.View.extend({
-    initialize: function(){
-        this.render();
+    save:function(params, callback){
+        $.post('/collection', params, function(){
+            if(callback) callback();
+        })
     },
-    render: function(){
-    	var self = this;
 
-    	var collections = new Collections();
-    	collections.fetch({
-    		success:function(collections){
-    			var template = _.template( $("#collection_template").html(), {collections:collections.models} );
-		        self.$el.html( template );
-    		}
-    	});
-        
+    attachEvents:function(){
+        var self = this;
+
+        $('#formAddCollection').on('submit', function(ev){
+            ev.preventDefault();
+
+            var params = $(this).serialize();
+
+            self.save(params, function(){
+                window.location = '/frontend/index.html';
+            });
+
+        })
     }
+}
+
+var Item = {
+    getAll:function(collection_id){
+        if(collection_id) data = {collectionId:collection_id}
+        $.getJSON('/items', data, function(json){
+            Util.Templating.renderTemplate('item_template', {'items':json}, 'items');
+        })
+    },
+
+    save:function(params, callback){
+        $.post('/item', params, function(){
+            if(callback) callback();
+        })
+    },
+
+    attachEvents:function(){
+        var self = this;
+
+        $('#aAddItem').on('click', function(){
+            $('#dropCollectionsContainer').html(Collection.getDropdown());
+
+            $('#formAddItem').toggle();
+        });    
+
+        $('#formAddItem').on('submit', function(ev){
+            ev.preventDefault();
+
+            var params = Util.querystringToObject( $(this).serialize() );
+            params.collectionIds = [params.collectionId];
+
+            self.save(params, function(){
+                window.location = '/frontend/index.html';
+            });
+
+        })
+    }
+}
+
+Path.map("#/home").to(function(){
+    Collection.getAll();
+    Collection.attachEvents();
+    Item.attachEvents();
 });
 
-var Router = Backbone.Router.extend({
-
-  routes: {
-    "collection/:id":        "collection"  // #search/kiwis
-  },
-
-  collection: function(id) {
-    alert(id)
-  }
-
+Path.map("#/collection/:id").to(function(){
+    Item.getAll(this.params["id"])
 });
 
-var r = new Router();
-Backbone.history.start();
+Path.root("#/home");
 
-var Collections = Backbone.Collection.extend({
-  model: Collection,
-  url:'/collections'
-});
-    
-var collection_form_view = new CollectionFormView({ el: $("#collection_form") });
-var collections_view = new CollectionsView({ el: $("#collections") });
+Path.listen();

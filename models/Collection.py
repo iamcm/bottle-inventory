@@ -6,7 +6,6 @@ class Collection(BaseModel):
         self.fields = [
         ('name', None),
         ('added', datetime.datetime.now()),
-        ('items', []),
         ('userId', None),
         ]
         super(self.__class__, self).__init__(_DBCON, _id)

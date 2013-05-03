@@ -12,7 +12,7 @@ from models.Session import Session
 from models.Email import Email
 from models.Collection import Collection
 from models.Item import Item
-
+from models import Logger
 
 
 def checklogin(callback):
@@ -32,6 +32,11 @@ def checklogin(callback):
     return wrapper
 
 
+def JSONResponse(callback):
+    def wrapper(*args, **kwargs):
+        bottle.response.content_type = 'text/json'
+        return callback(*args, **kwargs)
+    return wrapper
 
 
 # static files
@@ -78,9 +83,12 @@ def index():
 # main app routes
 @bottle.route('/collections', method='GET') 
 @checklogin
+@JSONResponse
 def index():
     collections = EntityManager(_DBCON).get_all(Collection
-                            , filter_criteria={'userId':bottle.request.session.userId})
+                            , filter_criteria={'userId':bottle.request.session.userId}
+                            ,sort_by=[('name', 1)]
+                            )
 
     output = []
     for c in collections:
@@ -88,51 +96,53 @@ def index():
 
     return json.dumps(output)
 
+
 @bottle.route('/collection', method='POST') 
 @checklogin
+@JSONResponse
 def index():
-    id = bottle.request.json.get('id')
-    name = bottle.request.json.get('name')
-    items = bottle.request.json.get('items')
+    id = bottle.request.POST.get('id')
+    name = bottle.request.POST.get('name')
     
     c = Collection(_DBCON, id)
     c.name = name
-    if items:
-        for i in items:
-            c.items.append(i)
     c.userId = bottle.request.session.userId
     c.save()
 
     return json.dumps({'result':True})
 
 
-@bottle.route('/item/save', method='GET') 
+@bottle.route('/item', method='POST') 
 @checklogin
+@JSONResponse
 def index():
-    id = bottle.request.GET.get('id')
-    name = bottle.request.GET.get('name')
-    if bottle.request.GET.get('collectionIds'):
-        collectionIds = bottle.request.GET.get('collectionIds').split(',')
+    id = bottle.request.POST.get('id')
+    name = bottle.request.POST.get('name')
+    if bottle.request.POST.get('collectionIds[]'):
+        collectionIds = bottle.request.POST.get('collectionIds[]').split(',')
     else:
         collectionIds = []
 
     i = Item(_DBCON, id)
     i.name = name
     i.userId = bottle.request.session.userId
-    i.save()
 
     for id in collectionIds:
-        c = Collection(_DBCON, _id=id)
-        c.items.append(i._id)
-        c.items = [i for i in set(c.items)]
-        c.save()
+        i.collections.append(id)
+        i.collections = [c for c in set(i.collections)]
+    
+    i.save()
+
 
     return json.dumps({'result':True})
 
 
 @bottle.route('/items', method='GET') 
 @checklogin
+@JSONResponse
 def index():
+    collectionId = bottle.request.GET.get('collectionId')
+
     if collectionId:
         items = EntityManager(_DBCON).get_all(Item
                             , filter_criteria={
@@ -150,7 +160,6 @@ def index():
         output.append( i.get_json_safe() )
 
     return json.dumps(output)
-
 
 
 
