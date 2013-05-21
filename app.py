@@ -12,8 +12,16 @@ from models.Session import Session
 from models.Email import Email
 from models.Collection import Collection
 from models.Item import Item
+from models.File import File
 from models import Logger
 
+
+# CONFIG
+APPLICATIONROOT = os.path.dirname( os.path.abspath(__file__) )
+USERFILES = APPLICATIONROOT + '/userfiles'
+
+def randomfilename():
+   return str( random.randint(1000, 1000000) ) 
 
 def checklogin(callback):
     def wrapper(*args, **kwargs):
@@ -87,7 +95,7 @@ def index():
 def index():
     collections = EntityManager(_DBCON).get_all(Collection
                             , filter_criteria={'userId':bottle.request.session.userId}
-                            ,sort_by=[('name', 1)]
+                            ,sort_by=[('lowercasename', 1)]
                             )
 
     output = []
@@ -112,6 +120,31 @@ def index():
     return json.dumps({'result':True})
 
 
+@bottle.route('/upload', method='POST')
+@checklogin
+def index():
+    uploadedFile = bottle.request.files.get('file')
+    nicename, ext = os.path.splitext(uploadedFile.filename)
+
+    savepath = os.path.join(USERFILES, str(bottle.request.session.userId))
+
+    if not os.path.isdir(savepath):
+        os.mkdir(savepath)
+
+    fullpath = os.path.join(savepath, randomfilename() + ext)
+    while os.path.isfile(fullpath):
+        fullpath = os.path.join(savepath, randomfilename() + ext)
+
+    uploadedFile.save(fullpath)
+
+    f = File(_DBCON)
+    f.nicename = uploadedFile.filename
+    f.sysname = os.path.split(fullpath)[1]
+    f.sessionId = bottle.request.session.publicId
+    f.userId = bottle.request.session.userId
+    f.save()
+
+
 @bottle.route('/item', method='POST') 
 @checklogin
 @JSONResponse
@@ -131,6 +164,16 @@ def index():
         i.collections.append(id)
         i.collections = [c for c in set(i.collections)]
     
+    #associate any previously uploaded files
+    for f in EntityManager(_DBCON).get_all(File
+                                , filter_criteria={
+                                    'userId':bottle.request.session.userId,
+                                    'sessionId':bottle.request.session.publicId
+                                    }):
+        i.files.append(f._id)
+        f.sessionId = ''
+        f.save()
+
     i.save()
 
 

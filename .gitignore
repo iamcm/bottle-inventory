@@ -2,7 +2,7 @@
 site.log
 settings.py
 app.pid
-
+userfiles
 
 # C extensions
 *.so
