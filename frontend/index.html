@@ -8,7 +8,7 @@
     <link href="static/css/bootstrap.css" rel="stylesheet">
     <style>
     body {
-        padding-top: 60px; /* 60px to make the container go all the way to the bottom of the topbar */
+        padding-top: 80px; /* 60px to make the container go all the way to the bottom of the topbar */
     }
     </style>
     <link href="static/css/bootstrap-responsive.css" rel="stylesheet">
@@ -38,7 +38,7 @@
     </ul>
     </script>
 
-    <script type="text/x-handlebars-template" id="item_template">
+    <script type="text/x-handlebars-template" id="item_list_template">
     <ul>
         {{@items}}
         <li>
@@ -50,42 +50,65 @@
     </ul>
     </script>
 
+    <script type="text/x-handlebars-template" id="item_template">
+    <h1>{{=name}}</h1>
+    <h3>{{=added}}</h3>
+    {{@files}}
+            <a href="/api/getfile/{{=_val._id}}">
+                {{=_val.nicename}}
+            </a>
+    {{/@files}}
+    </script>
+
 </head>
 
 <body>
 
-    <div class="navbar navbar-fixed-top">
+    <div id="site-header" class="navbar navbar-fixed-top">
         <div class="navbar-inner">
             <div class="container-fluid">
-                <a class="brand" href="/frontend/index.html">Inventory</a>
+                <a class="brand" href="/index.html">Inventory</a>
             </div>
         </div>
     </div>
 
-
-    <div class="container-fluid">
+    <div class="container-fluid page" id="pageHome">
         <div class="row-fluid">
             <div class="span3">
-                <div id="collection_form">
-                    <form class="form-horizontal" id="formAddCollection">
-                        <input type="text" name="name" />
-                        <input type="submit" class="btn" id="submit" value="Add" />
-                    </form>
-                </div>
+                <a href="#/collection/add">Add collection</a>
                 <div id="collections"></div>
             </div>
             <div class="span9">
                 <div id="item_form" >
-                    <a class="pull-right" href="#" id="aAddItem">Add Item</a>
-                    <form id="formAddItem" class="form-horizontal pull-right hide">
-                        <input type="text" name="name" />
-                        <div id="uploader"></div>
-                        <span id="dropCollectionsContainer"></span>
-                        <input type="submit" class="btn" id="submit" value="Add" />
-                    </form>
-                    &nbsp;
+                <a href="#/item/add">Add item</a>
                 </div>
                 <div id="items"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid page" id="pageAddCollection">
+        <div class="row-fluid">
+            <div class="span12">
+                <div id="collection_form">
+                    <form class="form-horizontal" id="formAddCollection" method="post">
+                        <input type="text" name="name" />
+                        <input type="submit" class="btn" id="submit" value="Add" />
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid page" id="pageAddItem">
+        <div class="row-fluid">
+            <div class="span12">
+                <form id="formAddItem" method="post">
+                    <input type="text" name="name" />
+                    <div id="uploader"></div>
+                    <div id="dropCollectionsContainer"></div>
+                    <input type="submit" class="btn" id="submit" value="Add" />
+                </form>
             </div>
         </div>
     </div>
@@ -102,47 +125,8 @@
 <!-- Load plupload and all it's runtimes and finally the jQuery queue widget -->
 <script type="text/javascript" src="static/plupload/js/plupload.full.js"></script>
 <script type="text/javascript" src="static/plupload/js/jquery.plupload.queue/jquery.plupload.queue.js"></script>
+<script type="text/javascript" src="static/js/uploader.js"></script>
 
-<script type="text/javascript">
-// Convert divs to queue widgets when the DOM is ready
-$(function() {
-    $("#uploader").pluploadQueue({
-        // General settings
-        runtimes : 'html5,flash',
-        url : '/upload',
-        max_file_size : '10mb',
-        chunk_size : '1mb',
-        unique_names : true,
-
-        // Resize images on clientside if we can
-        resize : {width : 320, height : 240, quality : 90},
-
-        // Flash settings
-        flash_swf_url : 'static/plupload/js/plupload.flash.swf'
-    });
-
-    // Client side form validation
-    $('form').submit(function(e) {
-        var uploader = $('#uploader').pluploadQueue();
-
-        // Files in queue upload them first
-        if (uploader.files.length > 0) {
-            // When all files are uploaded submit form
-            uploader.bind('StateChanged', function() {
-                if (uploader.files.length === (uploader.total.uploaded + uploader.total.failed)) {
-                    $('form')[0].submit();
-                }
-            });
-                
-            uploader.start();
-        } else {
-            alert('You must queue at least one file.');
-        }
-
-        return false;
-    });
-});
-</script>
             
 
 </body>

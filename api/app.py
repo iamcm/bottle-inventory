@@ -10,18 +10,18 @@ from models.EntityManager import EntityManager
 from models.User import User
 from models.Session import Session
 from models.Email import Email
-from models.Collection import Collection
-from models.Item import Item
-from models.File import File
+from models.Models import File, Item, Collection
 from models import Logger
 
 
-# CONFIG
-APPLICATIONROOT = os.path.dirname( os.path.abspath(__file__) )
-USERFILES = APPLICATIONROOT + '/userfiles'
-
 def randomfilename():
    return str( random.randint(1000, 1000000) ) 
+
+
+
+
+def generate_api_key():
+    return ''.join(random.sample(string.letters + string.digits, 40))
 
 def checklogin(callback):
     def wrapper(*args, **kwargs):
@@ -31,10 +31,25 @@ def checklogin(callback):
             s = Session(_DBCON, publicId=token)
             if not s.valid or not s.check(bottle.request.get('REMOTE_ADDR'), bottle.request.get('HTTP_USER_AGENT')):
                 return bottle.HTTPError(403, 'Access denied')
-                
+
             else:
                 bottle.request.session = s
                 return callback(*args, **kwargs)
+        
+        elif bottle.request.GET.get('apikey'):
+            users = EntityManager(_DBCON).get_all(User, filter_criteria={'apikey':bottle.request.GET.get('apikey')})
+
+            if len(users)==1:
+                u = users[0]
+                s = Session(_DBCON)
+                s.userId = u._id
+
+                bottle.request.session = s
+
+                return callback(*args, **kwargs)
+            else:
+                return bottle.HTTPError(403, 'Access denied')
+
         else:
             return bottle.HTTPError(403, 'Access denied')
     return wrapper
@@ -47,52 +62,98 @@ def JSONResponse(callback):
     return wrapper
 
 
-# static files
-if settings.PROVIDE_STATIC_FILES:
-    @bottle.route('/frontend/<filepath:path>')
-    def index(filepath):
-        return bottle.static_file(filepath, root=settings.ROOTPATH +'/frontend/')
-
-
-
-
 # auth
-@bottle.route('/login')
+def loginUser(userId):
+    s = Session(_DBCON)
+    s.userId = userId
+    s.ip = bottle.request.get('REMOTE_ADDR')
+    s.userAgent = bottle.request.get('HTTP_USER_AGENT')
+    s.save()
+
+    return s.publicId
+
+
+@bottle.route('/api/login', method='POST')
+@JSONResponse
 def index():
-    e = bottle.request.GET.get('email')
-    p = bottle.request.GET.get('password')
+    e = bottle.request.POST.get('email')
+    p = bottle.request.POST.get('password')
 
     if e and p:
         u = User(_DBCON, email=e, password=p)
 
         if u._id and u.valid:
-            s = Session(_DBCON)
-            s.userId = u._id
-            s.ip = bottle.request.get('REMOTE_ADDR')
-            s.userAgent = bottle.request.get('HTTP_USER_AGENT')
-            s.save()
+            loginUser(u._id)
 
-            return s.publicId
+            output = {'success':1}
+        else:
+            output = {
+                'success':0,
+                'error':'Login failed'
+            }
+    else:
+        output = {
+            'success':0,
+            'error':'Login failed'
+        }
 
-    return bottle.HTTPError(403, 'Access denied')
+    return json.dumps(output)
 
 
-@bottle.route('/logout', method='GET')
+
+@bottle.route('/api/logout', method='GET')
 @checklogin
 def index():
     s = bottle.request.session
     s.destroy()
     
-    return bottle.redirect('/login')
+    return ''
+
+
+
+@bottle.route('/api/apikey', method='GET')
+@checklogin
+def index():
+    u = User(_DBCON, _id=bottle.request.session.userId)
+    
+    if u:
+        key = u.apikey
+    else:
+        key = ''
+
+    return key
+
+
+
+@bottle.route('/api/apikey', method='POST')
+@checklogin
+def index():
+
+    u = User(_DBCON, _id=bottle.request.session.userId)
+    
+    if u:
+        key = generate_api_key()
+
+        while EntityManager(_DBCON).get_all(User, filter_criteria={'apikey':key}, count=True) > 0:
+            key = generate_api_key()
+
+        u.apikey = key
+        u.save()
+
+    else:
+        key = ''
+
+    return key
 
 
 
 
 # main app routes
-@bottle.route('/collections', method='GET') 
+@bottle.route('/api/collections', method='GET') 
 @checklogin
 @JSONResponse
 def index():
+    Logger.log_to_file(bottle.request.session.userId)
     collections = EntityManager(_DBCON).get_all(Collection
                             , filter_criteria={'userId':bottle.request.session.userId}
                             ,sort_by=[('lowercasename', 1)]
@@ -105,7 +166,7 @@ def index():
     return json.dumps(output)
 
 
-@bottle.route('/collection', method='POST') 
+@bottle.route('/api/collection', method='POST') 
 @checklogin
 @JSONResponse
 def index():
@@ -120,13 +181,13 @@ def index():
     return json.dumps({'result':True})
 
 
-@bottle.route('/upload', method='POST')
+@bottle.route('/api/upload', method='POST')
 @checklogin
 def index():
     uploadedFile = bottle.request.files.get('file')
     nicename, ext = os.path.splitext(uploadedFile.filename)
 
-    savepath = os.path.join(USERFILES, str(bottle.request.session.userId))
+    savepath = os.path.join(settings.USERFILESPATH, str(bottle.request.session.userId))
 
     if not os.path.isdir(savepath):
         os.mkdir(savepath)
@@ -145,7 +206,7 @@ def index():
     f.save()
 
 
-@bottle.route('/item', method='POST') 
+@bottle.route('/api/item', method='POST') 
 @checklogin
 @JSONResponse
 def index():
@@ -180,7 +241,30 @@ def index():
     return json.dumps({'result':True})
 
 
-@bottle.route('/items', method='GET') 
+@bottle.route('/api/item/:id', method='GET') 
+@checklogin
+@JSONResponse
+def index(id):
+    i = Item(_DBCON, _id=id)
+
+    if i.userId != bottle.request.session.userId:
+        return bottle.HTTPError(403, 'Access denied')
+
+    files = EntityManager(_DBCON).get_all(File
+                                , filter_criteria={
+                                    'userId':bottle.request.session.userId,
+                                    '_id':{
+                                        '$in':i.files
+                                    }
+                                })
+
+    output = i.get_json_safe()
+    output['files'] = [f.get_json_safe() for f in files]
+
+    return json.dumps(output)
+
+
+@bottle.route('/api/items', method='GET') 
 @checklogin
 @JSONResponse
 def index():
@@ -206,7 +290,35 @@ def index():
 
 
 
+@bottle.route('/api/getfile/:id', method='GET') 
+@checklogin
+@JSONResponse
+def index(id):
+    f = File(_DBCON, _id=id)
 
+    if f.userId != (bottle.request.session.userId):
+        return bottle.HTTPError(403, 'Access denied')
+
+    filepath = os.path.join(settings.USERFILESPATH, str(bottle.request.session.userId))
+
+    return bottle.static_file(f.sysname, root=filepath)
+
+
+
+
+
+
+
+
+# static files
+if settings.PROVIDE_STATIC_FILES:
+    @bottle.route('/m/<filepath:path>')
+    def index(filepath):
+        return bottle.static_file(filepath, root='/home/chris/code/braindump_mobile/')
+
+    @bottle.route('/<filepath:path>')
+    def index(filepath):
+        return bottle.static_file(filepath, root=settings.ROOTPATH +'/../frontend/')
 
 
 

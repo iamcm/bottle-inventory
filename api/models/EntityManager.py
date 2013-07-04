@@ -45,7 +45,12 @@ class EntityManager:
                                     'userId':bottle.request.session.userId,
                                     'collections':{
                                         '$in':[collectionId]
-                                    }
+                                    },
+                                    '$or':[
+                                        {'title':'Public'},
+                                        {'title':'An event'},                                                   
+                                    ],
+                                    'title':{'$regex':searchterm, '$options': 'i' },
                                 })
         """
         extraCriteria = ''
@@ -75,9 +80,7 @@ class EntityManager:
             entities = []
             for result in eval(command):
                 e = entity(self.db)
-                setattr(e, '_id', result.get('_id'))
-                for f, val in e.fields:
-                    setattr(e, f, result.get(f))
+                e._hydrate(result)
                 entities.append(e)
             
             return entities

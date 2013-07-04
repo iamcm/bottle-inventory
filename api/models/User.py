@@ -25,10 +25,12 @@ class User(BaseModel):
             ('salt', ''),
             ('valid', False),
             ('facebookuserId', None),
+            ('apikey', None),
             ('added', datetime.datetime.now()),
         ]
-        super(self.__class__, self).__init__(_DBCON, _id)
-        
+
+        BaseModel.__init__(self, _DBCON, _id)
+
         if email and password:
             self.get_user()
     
@@ -43,26 +45,26 @@ class User(BaseModel):
         return h.hexdigest()
     
     def save(self, newPassword=False):
-        user = self.db.User.find_one({'email':self.email})
+        user = eval("%s.find_one({'email':'%s'})" % (self._mongocollection, self.email))
         
         if user is None or newPassword:
             self.salt = os.urandom(20).decode('ascii', 'ignore')
             self.password = self.get_password_hash(self.salt)
             self.token = self.generate_token()
         
-
-        super(self.__class__, self).save()
+        BaseModel.save(self)
     
     def activate(self, token):
-        user = self.db.User.find_one({'token':token})
-        
+        user = eval("%s.find_one({'token':'%s'}" % (self._mongocollection, token))
+
         if user:
             self._id = user['_id']
             user['token'] = ''
             user['valid'] = True
             
-            self.db.User.save(user)
-            super(self.__class__, self).__init__(self.db, user['_id'])
+            user.save()
+
+            BaseModel.__init__(self, self.db, user['_id'])
 
             return True
         else:
@@ -70,14 +72,9 @@ class User(BaseModel):
         
         
     def get_user(self):
-                
-        user = self.db.User.find_one({
-            'email':self.email,
-            'valid':True
-        })
+        user = eval("%s.find_one({'email':'%s','valid':True})" % (self._mongocollection, self.email))
         
         if user:
             hash = self.get_password_hash(user.get('salt'))
             if user.get('password')== hash:
-                super(self.__class__, self).__init__(self.db, user['_id'])
-        
+                BaseModel.__init__(self, self.db, user['_id'])

@@ -31,7 +31,15 @@ Util = {
         html += '<button type="button" class="close" data-dismiss="alert">&times;</button>';
         html += message + '</div>'
 
+        if($('#flashmessagecontent').length<1){
+            var content = Util.Html.div({id:'flashmessagecontent'});
+            var container = Util.Html.div({id:'flashmessagecontainer', content:content});
+
+            $('body').append(container);
+        }
+
         $('#flashmessagecontent').html(html);
+
         setTimeout(function(){
             if($('#flashmessagecontent')) $('#flashmessagecontent').fadeOut(function(){
                 $(this).html('').show();
@@ -98,7 +106,6 @@ Util.Html = {
             });
      */
     select:function(obj){
-        
         var id = (obj.id) ? ' id="'+ obj.id +'"' : '' ;
         var classname = (obj.classname) ? ' class="'+ obj.classname +'"' : '' ;
         var style = (obj.style) ? ' style="'+ obj.style +'"' : '' ;

@@ -52,6 +52,7 @@ class BaseModel(object):
     t = Todo(_DBCON, todoId)
     """
     def __init__(self, db, _id=None):
+        self.pre_init()
         self._mongocollection = 'self.db.%s' % self.__class__.__name__
         self._id = None
         self._fields = self.fields or []
@@ -63,6 +64,14 @@ class BaseModel(object):
         if _id:
             self._get(_id)
     
+
+    def pre_init(self):
+        """
+        A hook for sub classes to override this and run code before this class's __init__ method
+        """
+        pass
+
+
     def _unicode_to_class(self, string):
         """
         Takes the output of <class>.__class__ and returns a string that can be 
@@ -78,35 +87,39 @@ class BaseModel(object):
         """
         return str(string[string.find('model'):string.rfind("'")])
     
-    def _get(self, _id):
-        command = '%s.find_one({"_id":ObjectId("%s")})' % (self._mongocollection, str(_id))
-        if DBDEBUG: Logger.log_to_file(command)
-        entity = eval(command)
+    def _get(self, _id=None, entity=None):
+        if _id:
+            command = '%s.find_one({"_id":ObjectId("%s")})' % (self._mongocollection, str(_id))
+            if DBDEBUG: Logger.log_to_file(command)
+            entity = eval(command)
+
+            if entity:
+                self._hydrate(entity)
         
-        if entity:
-            setattr(self, '_id', entity.get('_id'))
-            for f, val in self._fields:
-                fieldtype = type(getattr(self, f))
-                fieldvalue = entity.get(f)
-                
-                if fieldtype == list:
-                    fieldlist = []
-                    for el in fieldvalue:
-                        if type(el)==dict and el.has_key('__instanceOf__'):
-                            command = '%s(self.db, ObjectId("%s"))' % (self._unicode_to_class(el['__instanceOf__'])
-                                                                        , el['_id'])
-                            if DBDEBUG: Logger.log_to_file(command)
-                            el = eval(command)
-                        
-                        fieldlist.append(el)
-                    fieldvalue = fieldlist
-                elif type(fieldvalue)==dict and fieldvalue.has_key('__instanceOf__'):  
-                    command = '%s(self.db, ObjectId("%s"))' % (self._unicode_to_class(fieldvalue['__instanceOf__'])
-                                                                , fieldvalue['_id'])
-                    if DBDEBUG: Logger.log_to_file(command)       
-                    fieldvalue = eval(command)
-                
-                setattr(self, f, fieldvalue)
+    def _hydrate(self, entity):
+        setattr(self, '_id', entity.get('_id'))
+        for f, val in self._fields:
+            fieldtype = type(getattr(self, f))
+            fieldvalue = entity.get(f)
+            
+            if fieldtype == list:
+                fieldlist = []
+                for el in fieldvalue:
+                    if type(el)==dict and el.has_key('__instanceOf__'):
+                        command = '%s(self.db, ObjectId("%s"))' % (self._unicode_to_class(el['__instanceOf__'])
+                                                                    , el['_id'])
+                        if DBDEBUG: Logger.log_to_file(command)
+                        el = eval(command)
+                    
+                    fieldlist.append(el)
+                fieldvalue = fieldlist
+            elif type(fieldvalue)==dict and fieldvalue.has_key('__instanceOf__'):  
+                command = '%s(self.db, ObjectId("%s"))' % (self._unicode_to_class(fieldvalue['__instanceOf__'])
+                                                            , fieldvalue['_id'])
+                if DBDEBUG: Logger.log_to_file(command)       
+                fieldvalue = eval(command)
+            
+            setattr(self, f, fieldvalue)
     
     def _get_hash(self, saveClasses=True):
         obj = {}
@@ -136,6 +149,15 @@ class BaseModel(object):
         obj['__instanceOf__'] = str(self.__class__)
         
         return obj
+
+    def _make_safe_for_json(self, val):
+        fieldtype = type(val)
+
+        if fieldtype == datetime.datetime or fieldtype == ObjectId:
+            val = str(val)
+
+        return val
+
     
     def get_json_safe(self):
         obj = {}
@@ -146,19 +168,21 @@ class BaseModel(object):
             if fieldtype == list:
                 fieldlist = []
                 for el in fieldvalue:
-                    if hasattr(el, 'get_json'):
-                        el = el.get_json()
+                    if hasattr(el, 'get_json_safe'):
+                        el = el.get_json_safe()
                     
-                    fieldlist.append(str(el))
+                    fieldlist.append(self._make_safe_for_json(el))
+
                 fieldvalue = fieldlist
-            elif hasattr(fieldvalue, 'get_json'):
-                fieldvalue = fieldvalue.get_json()            
-                  
-            obj[f] = str(fieldvalue)
+            elif hasattr(fieldvalue, 'get_json_safe'):
+                fieldvalue = fieldvalue.get_json_safe()          
+
+            obj[f] = self._make_safe_for_json(fieldvalue)
             
         if self._id: obj['_id'] = str(self._id)
                 
         return obj
+        
             
     def save(self):
         if self._id:

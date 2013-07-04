@@ -1,19 +1,20 @@
+body{
+    background-color: #232323;
+    color: #fff;
+}
 
-    .item
-    {
-        background: #fafafa;
-        border: 1px solid #efefef;
-        margin:5px 0;
-        padding:10px;
-    }
-    .item .title
-    {
-        font-weight: bold;
-    }
-    .item .content
-    {
-        display: none;
-        border-top: 1px solid #efefef;
-        margin-top: 10px;
-        padding-top: 10px;
-    }
+#site-header .navbar-inner{
+    background-image: none;
+    background-color: #111;
+    height: 60px;
+}
+
+#site-header .brand{
+    line-height: 60px;
+    padding: 0 5%;
+    font-size: 30px;
+}
+
+#collections ul{
+    list-style: none;
+}

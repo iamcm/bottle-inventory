@@ -1,10 +1,19 @@
+var EventRegistry = []
+
+var Router = {
+    showPage:function(id){
+        $('.page').hide();
+        $('#'+ id).show();
+    }
+}
+
 var Collection = {
     collections:null,
 
     getAll:function(callback){
         var self = this;
 
-        $.getJSON('/collections', function(json){
+        $.getJSON('/api/collections', function(json){
             self.collections = json;
 
             Util.Templating.renderTemplate('collection_template', {'collections':json}, 'collections');
@@ -13,11 +22,15 @@ var Collection = {
         })
     },
 
-    getDropdown:function(){
-        if(!this.collections){
-            this.getAll(this.getDropdown);
-        } else {
+    getDropdown:function(callback){
 
+        if(!this.collections){
+            var self = this;
+
+            this.getAll(function(){
+                self.getDropdown(callback);
+            });
+        } else {
             var html = Util.Html.select({
                 name:'collectionId',
                 content:this.collections,
@@ -25,13 +38,12 @@ var Collection = {
                 nameKey:'name',
             });
 
-            return html;
+            callback(html);
         }
-
     },
 
     save:function(params, callback){
-        $.post('/collection', params, function(){
+        $.post('/api/collection', params, function(){
             if(callback) callback();
         })
     },
@@ -39,29 +51,42 @@ var Collection = {
     attachEvents:function(){
         var self = this;
 
-        $('#formAddCollection').on('submit', function(ev){
-            ev.preventDefault();
+        var eventName = "formAddCollection";
 
-            var params = $(this).serialize();
+        if(EventRegistry.indexOf(eventName) == -1){            
+            EventRegistry.push(eventName);
 
-            self.save(params, function(){
-                window.location = '/frontend/index.html';
-            });
+            $('#formAddCollection').on('submit', function(ev){
+                ev.preventDefault();
 
-        })
+                var params = $(this).serialize();
+
+                self.save(params, function(){
+                    window.location = '/index.html';
+                });
+
+            })
+        }
     }
 }
 
 var Item = {
+    getOne:function(item_id){
+
+        $.getJSON('/api/item/'+item_id, function(json){
+            Util.Templating.renderTemplate('item_template', json, 'items');
+        })
+    },
+    
     getAll:function(collection_id){
         if(collection_id) data = {collectionId:collection_id}
-        $.getJSON('/items', data, function(json){
-            Util.Templating.renderTemplate('item_template', {'items':json}, 'items');
+        $.getJSON('/api/items', data, function(json){
+            Util.Templating.renderTemplate('item_list_template', {'items':json}, 'items');
         })
     },
 
     save:function(params, callback){
-        $.post('/item', params, function(){
+        $.post('/api/item', params, function(){
             if(callback) callback();
         })
     },
@@ -69,34 +94,78 @@ var Item = {
     attachEvents:function(){
         var self = this;
 
-        $('#aAddItem').on('click', function(){
-            $('#dropCollectionsContainer').html(Collection.getDropdown());
+        var eventName = "formAddItem";
 
-            $('#formAddItem').toggle();
-        });    
+        if(EventRegistry.indexOf(eventName) == -1){            
+            EventRegistry.push(eventName);
 
-        $('#formAddItem').on('submit', function(ev){
-            ev.preventDefault();
+            $('#formAddItem').on('submit', function(ev){
+                ev.preventDefault();
+                
+                var params = Util.querystringToObject( $(this).serialize() );
+                params.collectionIds = [params.collectionId];
+                
+                var uploader = $('#uploader').pluploadQueue();
 
-            var params = Util.querystringToObject( $(this).serialize() );
-            params.collectionIds = [params.collectionId];
+                if (uploader.files.length > 0) {
+                    uploader.bind('StateChanged', function() {
+                        if (uploader.files.length === (uploader.total.uploaded + uploader.total.failed)) {
 
-            self.save(params, function(){
-                window.location = '/frontend/index.html';
-            });
+                            self.save(params, function(){
+                                window.location = '#/collection/'+ params.collectionId;
+                            });
 
-        })
+                        }
+                    });
+
+                    uploader.start();
+                }else{
+                    self.save(params, function(){
+                        window.location = '#/collection/'+ params.collectionId;
+                    });
+                }
+            })
+        }
     }
 }
 
+
+$(document).ajaxError(function(event, jqxhr){
+    if(jqxhr.status == 403){
+        window.location = '/login.html';
+    } else {
+        Util.flashMessage('error', 'An error has occured');
+    }
+})
+
 Path.map("#/home").to(function(){
     Collection.getAll();
+    Router.showPage('pageHome');
+});
+
+Path.map("#/collection/add").to(function(){
     Collection.attachEvents();
+    Router.showPage('pageAddCollection');
+});
+
+Path.map("#/item/add").to(function(){
     Item.attachEvents();
+
+    Collection.getDropdown(function(html){
+        $('#dropCollectionsContainer').html(html);
+    })
+
+    Router.showPage('pageAddItem');
 });
 
 Path.map("#/collection/:id").to(function(){
+    Router.showPage('pageHome');
     Item.getAll(this.params["id"])
+});
+
+Path.map("#/item/:id").to(function(){
+    Router.showPage('pageHome');
+    Item.getOne(this.params["id"])
 });
 
 Path.root("#/home");
